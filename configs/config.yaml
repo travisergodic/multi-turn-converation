@@ -1,5 +1,5 @@
 llm:
-  model: anthropic/claude-3.5-sonnet
+  model: qwen/qwen3.6-plus
   base_url: https://openrouter.ai/api/v1
 
 retrieval:
@@ -8,9 +8,15 @@ retrieval:
   embed_topk: 20
   rerank_topk: 5
 
+context:
+  window_messages: 16
+  summary_trigger_messages: 24
+  summary_batch_messages: 8
+
 memory:
   namespace: long_term_memory
   db_path: data/checkpoints.db
+  store_path: data/long_term_memory.json
 
 profile:
   path: configs/user_profile.json
