@@ -424,7 +424,7 @@ git commit -m "feat: memory store with add/append/delete/list"
 
 **涉及文件：** 新建 `src/retrieve.py`
 
-- [ ] **Step 1：写失败测试**
+- [x] **Step 1：写失败测试**
 
 ```python
 # tests/test_retrieve.py
@@ -454,14 +454,14 @@ def test_retrieve_fewer_than_topk():
     assert len(results) <= 2
 ```
 
-- [ ] **Step 2：运行测试，确认失败**
+- [x] **Step 2：运行测试，确认失败**
 
 ```bash
 pytest tests/test_retrieve.py -v
 ```
 预期：FAIL
 
-- [ ] **Step 3：实现 `src/retrieve.py`**
+- [x] **Step 3：实现 `src/retrieve.py`**
 
 ```python
 import numpy as np
@@ -506,14 +506,14 @@ class Retriever:
         return [m for _, m in ranked[:rerank_topk]]
 ```
 
-- [ ] **Step 4：运行测试，确认通过**
+- [x] **Step 4：运行测试，确认通过**
 
 ```bash
 pytest tests/test_retrieve.py -v
 ```
 预期：PASS（首次运行会下载模型，需要联网）
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/retrieve.py tests/test_retrieve.py
