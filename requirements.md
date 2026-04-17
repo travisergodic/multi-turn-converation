@@ -321,7 +321,7 @@ git commit -m "feat: openrouter client"
 
 **涉及文件：** 新建 `src/memory_store.py`
 
-- [ ] **Step 1：写失败测试**
+- [x] **Step 1：写失败测试**
 
 ```python
 # tests/test_memory_store.py
@@ -351,14 +351,14 @@ def test_delete_memory():
     assert list_memories(store, "u1") == []
 ```
 
-- [ ] **Step 2：运行测试，确认失败**
+- [x] **Step 2：运行测试，确认失败**
 
 ```bash
 pytest tests/test_memory_store.py -v
 ```
 预期：FAIL
 
-- [ ] **Step 3：实现 `src/memory_store.py`**
+- [x] **Step 3：实现 `src/memory_store.py`**
 
 ```python
 import uuid
@@ -404,14 +404,14 @@ def delete_memory(store: BaseStore, user_id: str, memory_id: str) -> None:
     _save_index(store, user_id, index)
 ```
 
-- [ ] **Step 4：运行测试，确认通过**
+- [x] **Step 4：运行测试，确认通过**
 
 ```bash
 pytest tests/test_memory_store.py -v
 ```
 预期：PASS
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/memory_store.py tests/test_memory_store.py
