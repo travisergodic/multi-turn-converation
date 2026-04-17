@@ -253,7 +253,7 @@ git commit -m "feat: centralize all prompts in src/prompt.py"
 
 **涉及文件：** 新建 `src/llm_client.py`
 
-- [ ] **Step 1：写失败测试**
+- [x] **Step 1：写失败测试**
 
 ```python
 # tests/test_llm_client.py
@@ -268,14 +268,14 @@ def test_chat_completion_returns_string():
     assert result == "你好！"
 ```
 
-- [ ] **Step 2：运行测试，确认失败**
+- [x] **Step 2：运行测试，确认失败**
 
 ```bash
 pytest tests/test_llm_client.py -v
 ```
 预期：`ImportError`
 
-- [ ] **Step 3：实现 `src/llm_client.py`**
+- [x] **Step 3：实现 `src/llm_client.py`**
 
 ```python
 import os
@@ -301,14 +301,14 @@ def chat_completion(messages: list[dict], model: str = DEFAULT_MODEL) -> str:
     return response.choices[0].message.content
 ```
 
-- [ ] **Step 4：运行测试，确认通过**
+- [x] **Step 4：运行测试，确认通过**
 
 ```bash
 pytest tests/test_llm_client.py -v
 ```
 预期：PASS
 
-- [ ] **Step 5：提交**
+- [x] **Step 5：提交**
 
 ```bash
 git add src/llm_client.py tests/test_llm_client.py
