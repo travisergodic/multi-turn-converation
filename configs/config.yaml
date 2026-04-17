@@ -1,0 +1,16 @@
+llm:
+  model: anthropic/claude-3.5-sonnet
+  base_url: https://openrouter.ai/api/v1
+
+retrieval:
+  embed_model: BAAI/bge-small-zh-v1.5
+  rerank_model: BAAI/bge-reranker-base
+  embed_topk: 20
+  rerank_topk: 5
+
+memory:
+  namespace: long_term_memory
+  db_path: data/checkpoints.db
+
+profile:
+  path: configs/user_profile.json
