@@ -17,10 +17,8 @@ if str(_ROOT) not in sys.path:
 os.chdir(_ROOT)
 load_dotenv()
 
-from src.graph import build_response_graph
+from src.graph import build_maintenance_graph, build_response_graph
 from src.logging_utils import get_log_file, get_logger, setup_logging
-from src.memory_store import FileMemoryStore
-from src.nodes import memory_update_node, profile_update_node, summary_update_node
 
 with open("configs/config.yaml", encoding="utf-8") as f:
     _cfg = yaml.safe_load(f)
@@ -76,18 +74,11 @@ def print_help():
     print()
 
 
-def run_background_updates(state: dict, store_path: str, thread_id: str) -> None:
+def run_background_updates(maintenance_graph, state: dict, config: dict, thread_id: str) -> None:
     started_at = perf_counter()
     logger.info("Background updates started thread_id=%s", thread_id)
-    store = FileMemoryStore(store_path)
     try:
-        memory_update_node(state, store=store)
-        updated_profile = profile_update_node(state, store=store)
-        if updated_profile:
-            state.update(updated_profile)
-        updated_summary = summary_update_node(state, store=store)
-        if updated_summary:
-            state.update(updated_summary)
+        maintenance_graph.invoke(state, config=config)
         elapsed_ms = (perf_counter() - started_at) * 1000
         logger.info("Background updates finished thread_id=%s total_elapsed_ms=%.2f", thread_id, elapsed_ms)
     except Exception:
@@ -99,6 +90,7 @@ def main():
 
     store_path = _cfg["memory"].get("store_path", "data/long_term_memory.json")
     graph = build_response_graph(store_path=store_path)
+    maintenance_graph = build_maintenance_graph(store_path=store_path)
     user_id = "default_user"
     known_threads = load_known_threads()
     thread_id = known_threads[-1] if known_threads else str(uuid.uuid4())
@@ -175,7 +167,7 @@ def main():
             print(f"助手：{ai_messages[-1].content}\n")
             worker = threading.Thread(
                 target=run_background_updates,
-                args=(dict(result), store_path, thread_id),
+                args=(maintenance_graph, dict(result), config, thread_id),
                 daemon=True,
                 name=f"memory-maintenance-{thread_id[:8]}",
             )

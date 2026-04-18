@@ -43,6 +43,26 @@ def build_response_graph(db_path: str | None = None, store_path: str | None = No
     return builder.compile(checkpointer=checkpointer, store=store)
 
 
+def build_maintenance_graph(db_path: str | None = None, store_path: str | None = None):
+    path = db_path or _cfg["memory"]["db_path"]
+    resolved_store_path = _resolve_store_path(store_path)
+    checkpointer = _build_checkpointer(path)
+
+    builder = StateGraph(ConversationState)
+    builder.add_node("memory_update", memory_update_node)
+    builder.add_node("profile_update", profile_update_node)
+    builder.add_node("summary_update", summary_update_node)
+
+    builder.set_entry_point("memory_update")
+    builder.add_edge("memory_update", "profile_update")
+    builder.add_edge("profile_update", "summary_update")
+    builder.add_edge("summary_update", END)
+
+    store = FileMemoryStore(resolved_store_path)
+    logger.info("Built maintenance graph db_path=%s store_path=%s", path, resolved_store_path)
+    return builder.compile(checkpointer=checkpointer, store=store)
+
+
 def build_graph(db_path: str | None = None, store_path: str | None = None):
     path = db_path or _cfg["memory"]["db_path"]
     resolved_store_path = _resolve_store_path(store_path)
