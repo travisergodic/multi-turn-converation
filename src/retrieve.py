@@ -4,6 +4,8 @@ from typing import Any
 import numpy as np
 import yaml
 
+from langfuse import get_client, observe
+
 from src.logging_utils import get_logger
 
 try:
@@ -104,6 +106,7 @@ class Retriever:
         pairs = [[query, memory["content"]] for memory in memories]
         return np.asarray(reranker.predict(pairs), dtype=float)
 
+    @observe(name="retrieve")
     def retrieve(self, query: str, memories: list[dict]) -> list[dict]:
         if not memories:
             logger.info("Retriever received no memories for query_chars=%s", len(query))
@@ -118,6 +121,13 @@ class Retriever:
         rerank_scores = self._rerank_scores(query, candidates)
         ranked = sorted(zip(rerank_scores, candidates), key=lambda item: item[0], reverse=True)
         results = [memory for _, memory in ranked[:rerank_topk]]
+        get_client().update_current_span(
+            metadata={
+                "candidate_count": len(candidates),
+                "final_count": len(results),
+                "total_memories": len(memories),
+            }
+        )
         logger.info(
             "Retriever completed query_chars=%s total_memories=%s embed_topk=%s rerank_topk=%s returned=%s",
             len(query),
