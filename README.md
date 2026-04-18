@@ -12,9 +12,7 @@
 
 - 使用 OpenRouter 作为大模型调用入口
 - 使用 embedding + rerank 检索相关长期记忆
-- 每轮对话后自动执行记忆更新操作：`add`、`update`、`delete`、`noop`
-- 主回复优先返回，记忆与 profile 更新在后台异步执行
-- 短期上下文使用滑动窗口，旧消息按批量增量摘要
+- 每轮对话后自动执行记忆更新操作：`add`、`append`、`delete`、`noop`
 - 支持多线程会话切换
 - 支持会话索引持久化，重启后仍可查看历史 thread 列表
 
@@ -89,11 +87,6 @@ retrieval:
   embed_topk: 20
   rerank_topk: 5
 
-context:
-  window_messages: 16
-  summary_trigger_messages: 24
-  summary_batch_messages: 8
-
 memory:
   namespace: long_term_memory
   db_path: data/checkpoints.db
@@ -108,9 +101,6 @@ profile:
 - `llm.model`：主对话模型
 - `retrieval.embed_topk`：embedding 召回条数
 - `retrieval.rerank_topk`：最终注入上下文的记忆条数
-- `context.window_messages`：每轮发送给模型的最近消息窗口
-- `context.summary_trigger_messages`：未摘要消息达到该阈值时触发增量摘要
-- `context.summary_batch_messages`：每次摘要折叠的旧消息条数
 - `memory.db_path`：短期记忆 SQLite 路径
 - `memory.store_path`：长期记忆 JSON 存储路径
 
@@ -179,36 +169,11 @@ python3 tools/chat.py
 - `long_term_memory.json`：保存长期记忆条目
 - `threads.json`：保存你本机上用过的 thread 列表
 
-另外，运行日志会写到：
-
-- `log/session_YYYYMMDD_HHMMSS.log`：每次启动 CLI 时新建一个日志文件，记录该次会话的运行日志
-
 这意味着：
 
 - 重启程序后，之前的 thread 仍然可以通过 `/switch <id>` 切回
 - 长期记忆不会因为进程退出而丢失
 - 用户画像会保存在 `configs/user_profile.json`
-
-## 日志
-
-程序运行时会自动创建 `log/` 目录，并为每次启动生成一个带时间戳的新日志文件，例如 `log/session_20260417_221043.log`。日志默认只写文件，不会输出到终端，避免影响命令行对话体验。
-
-日志中会包含这些类型的信息：
-
-- CLI 启动、退出、切换 thread、执行命令
-- 前台响应耗时与后台更新耗时
-- 图构建与存储路径
-- 检索命中数量与耗时
-- LLM 调用次数、响应长度与耗时
-- 长期记忆的新增、追加、删除
-- profile 更新结果
-
-排查问题时，可以直接查看：
-
-```bash
-ls -lt log
-tail -f log/session_YYYYMMDD_HHMMSS.log
-```
 
 ## 典型使用流程
 
