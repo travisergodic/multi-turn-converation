@@ -95,7 +95,7 @@
 
 在用户看到回复后，后台线程串行执行：
 
-1. `memory_update_node`：对长期记忆执行 `add/append/delete/noop`
+1. `memory_update_node`：对长期记忆执行 `add/update/delete/noop`
 2. `profile_update_node`：更新结构化画像
 3. `summary_update_node`：超过阈值时增量摘要旧消息
 
@@ -194,4 +194,3 @@
 - 语义检索：[src/retrieve.py](/Users/travishu/Documents/Projects/memory/src/retrieve.py)
 - 长期记忆存储：[src/memory_store.py](/Users/travishu/Documents/Projects/memory/src/memory_store.py)
 - CLI 与异步后台：[tools/chat.py](/Users/travishu/Documents/Projects/memory/tools/chat.py)
-

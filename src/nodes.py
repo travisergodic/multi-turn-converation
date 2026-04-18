@@ -8,7 +8,7 @@ from langgraph.store.base import BaseStore
 
 from src.llm_client import chat_completion
 from src.logging_utils import get_logger
-from src.memory_store import add_memory, append_memory, delete_memory, list_memories
+from src.memory_store import add_memory, delete_memory, list_memories, update_memory
 from src.prompt import (
     MEMORY_SECTION_TEMPLATE,
     MEMORY_UPDATE_PROMPT,
@@ -149,8 +149,11 @@ def memory_update_node(state: ConversationState, store: BaseStore) -> dict:
         content = op.get("content")
         if action == "add" and content:
             add_memory(store, user_id, content)
+        elif action == "update" and mid and content:
+            update_memory(store, user_id, mid, content)
         elif action == "append" and mid and content:
-            append_memory(store, user_id, mid, content)
+            # Backward compatibility: treat old "append" action as full update.
+            update_memory(store, user_id, mid, content)
         elif action == "delete" and mid:
             delete_memory(store, user_id, mid)
         else:

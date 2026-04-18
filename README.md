@@ -12,7 +12,7 @@
 
 - 使用 OpenRouter 作为大模型调用入口
 - 使用 embedding + rerank 检索相关长期记忆
-- 每轮对话后自动执行记忆更新操作：`add`、`append`、`delete`、`noop`
+- 每轮对话后自动执行记忆更新操作：`add`、`update`、`delete`、`noop`
 - 主回复优先返回，记忆与 profile 更新在后台异步执行
 - 短期上下文使用滑动窗口，旧消息按批量增量摘要
 - 支持多线程会话切换

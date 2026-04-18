@@ -1,4 +1,4 @@
-from src.memory_store import FileMemoryStore, add_memory, append_memory, delete_memory, list_memories
+from src.memory_store import FileMemoryStore, add_memory, delete_memory, list_memories, update_memory
 
 
 def test_add_and_list(tmp_path):
@@ -9,13 +9,13 @@ def test_add_and_list(tmp_path):
     assert memories[0]["content"] == "用户叫 Alice"
 
 
-def test_append_memory(tmp_path):
+def test_update_memory(tmp_path):
     store = FileMemoryStore(tmp_path / "memory.json")
     add_memory(store, "u1", "喜欢深色主题")
     mid = list_memories(store, "u1")[0]["id"]
-    append_memory(store, "u1", mid, "，也喜欢简洁界面")
+    update_memory(store, "u1", mid, "偏好极简风格界面")
     updated = list_memories(store, "u1")[0]["content"]
-    assert "简洁界面" in updated
+    assert updated == "偏好极简风格界面"
 
 
 def test_delete_memory(tmp_path):

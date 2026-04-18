@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 from langchain_core.messages import AIMessage, HumanMessage
 
-from src.memory_store import FileMemoryStore, list_memories
+from src.memory_store import FileMemoryStore, add_memory, list_memories
 from src.nodes import llm_node, memory_update_node, profile_update_node
 from src.state import ConversationState
 
@@ -37,6 +37,25 @@ def test_memory_update_node_add(tmp_path):
         memory_update_node(state, store=store)
 
     assert len(list_memories(store, "u1")) == 1
+
+
+def test_memory_update_node_update_and_append_compat(tmp_path):
+    store = FileMemoryStore(tmp_path / "memory.json")
+    mid = add_memory(store, "u1", "喜欢深色主题")
+    state = {
+        **MOCK_STATE,
+        "messages": [
+            HumanMessage(content="我其实更喜欢浅色主题"),
+            AIMessage(content="明白了，我记下你的新偏好"),
+        ],
+        "retrieved_memories": [{"id": mid, "content": "喜欢深色主题"}],
+    }
+    mock_ops = f'[{{"action": "append", "memory_id": "{mid}", "content": "偏好浅色主题"}}]'
+    with patch("src.nodes.chat_completion", return_value=mock_ops):
+        memory_update_node(state, store=store)
+
+    memories = list_memories(store, "u1")
+    assert memories[0]["content"] == "偏好浅色主题"
 
 
 def test_profile_update_node_noop(tmp_path):

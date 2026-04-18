@@ -27,9 +27,9 @@ MEMORY_UPDATE_PROMPT = """你是一个记忆管理助手。根据以下对话，
 助手：{assistant_message}
 
 请输出一个 JSON 数组，每项包含以下字段：
-- action: "add" | "append" | "delete" | "noop"
+- action: "add" | "update" | "delete" | "noop"
 - memory_id: 目标记忆的 ID（add 时为 null）
-- content: 新增或追加的内容（delete/noop 时为 null）
+- content: 新增或更新后的完整内容（delete/noop 时为 null）
 
 只输出 JSON 数组，不要其他内容。"""
 

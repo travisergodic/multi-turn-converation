@@ -158,18 +158,18 @@ def add_memory(store: Any, user_id: str, content: str) -> str:
     return mid
 
 
-def append_memory(store: Any, user_id: str, memory_id: str, extra: str) -> None:
+def update_memory(store: Any, user_id: str, memory_id: str, content: str) -> None:
     key = _memory_key(user_id, memory_id)
     item = store.get(NAMESPACE, key)
     if not item:
-        logger.warning("Skipped append for missing memory user_id=%s memory_id=%s", user_id, memory_id)
+        logger.warning("Skipped update for missing memory user_id=%s memory_id=%s", user_id, memory_id)
         return
 
     updated = dict(item.value)
-    updated["content"] = f"{updated['content']}{extra}"
+    updated["content"] = content
     updated["updated_at"] = _utc_now()
     store.put(NAMESPACE, key, updated)
-    logger.info("Appended memory user_id=%s memory_id=%s extra_chars=%s", user_id, memory_id, len(extra))
+    logger.info("Updated memory user_id=%s memory_id=%s content_chars=%s", user_id, memory_id, len(content))
 
 
 def delete_memory(store: Any, user_id: str, memory_id: str) -> None:
