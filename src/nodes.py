@@ -4,6 +4,7 @@ from typing import Any
 
 import yaml
 from langchain_core.messages import AIMessage, HumanMessage
+from langfuse import get_client, observe
 from langgraph.store.base import BaseStore
 
 from src.llm_client import chat_completion
@@ -69,6 +70,7 @@ def _build_system_prompt(profile: dict, memories: list[dict], summary: str) -> s
     )
 
 
+@observe(name="llm_node")
 def llm_node(state: ConversationState, store: BaseStore) -> dict:
     started_at = perf_counter()
     user_id = state["user_id"]
@@ -105,12 +107,23 @@ def llm_node(state: ConversationState, store: BaseStore) -> dict:
         len(windowed_messages),
         len(summary_text),
     )
+    get_client().update_current_span(
+        input=user_message,
+        output=reply,
+        metadata={
+            "retrieved_count": len(retrieved),
+            "total_memories": len(all_memories),
+            "reply_chars": len(reply or ""),
+            "windowed_messages": len(windowed_messages),
+        },
+    )
     return {
         "messages": [AIMessage(content=reply)],
         "retrieved_memories": retrieved,
     }
 
 
+@observe(name="memory_update_node")
 def memory_update_node(state: ConversationState, store: BaseStore) -> dict:
     started_at = perf_counter()
     msgs = state["messages"]
@@ -139,14 +152,19 @@ def memory_update_node(state: ConversationState, store: BaseStore) -> dict:
         operations = json.loads(raw)
     except json.JSONDecodeError:
         logger.warning("memory_update_node received invalid JSON: %s", raw)
+        get_client().score_current_span(name="memory_update.parse_success", value=0.0)
         return {}
+
+    get_client().score_current_span(name="memory_update.parse_success", value=1.0)
 
     user_id = state["user_id"]
     logger.info("memory_update_node executing operation_count=%s for user_id=%s", len(operations), user_id)
+    action_counts: dict[str, int] = {}
     for op in operations:
         action = op.get("action")
         mid = op.get("memory_id")
         content = op.get("content")
+        action_counts[action or "unknown"] = action_counts.get(action or "unknown", 0) + 1
         if action == "add" and content:
             add_memory(store, user_id, content)
         elif action == "update" and mid and content:
@@ -159,11 +177,19 @@ def memory_update_node(state: ConversationState, store: BaseStore) -> dict:
         else:
             logger.info("memory_update_node ignored operation action=%s memory_id=%s", action, mid)
 
+    get_client().update_current_span(
+        metadata={
+            "action_distribution": action_counts,
+            "operation_count": len(operations),
+        }
+    )
+
     total_elapsed_ms = (perf_counter() - started_at) * 1000
     logger.info("memory_update_node completed user_id=%s total_elapsed_ms=%.2f", user_id, total_elapsed_ms)
     return {}
 
 
+@observe(name="profile_update_node")
 def profile_update_node(state: ConversationState, store: BaseStore) -> dict:
     started_at = perf_counter()
     msgs = state["messages"]
@@ -190,12 +216,15 @@ def profile_update_node(state: ConversationState, store: BaseStore) -> dict:
     if raw == "null":
         total_elapsed_ms = (perf_counter() - started_at) * 1000
         logger.info("profile_update_node decided no profile update is needed total_elapsed_ms=%.2f", total_elapsed_ms)
+        get_client().score_current_span(name="profile_update.parse_success", value=1.0)
+        get_client().update_current_span(metadata={"updated": False})
         return {}
 
     try:
         updated_profile = json.loads(raw)
     except json.JSONDecodeError:
         logger.warning("profile_update_node received invalid JSON: %s", raw)
+        get_client().score_current_span(name="profile_update.parse_success", value=0.0)
         return {}
 
     profile_path = _cfg["profile"]["path"]
@@ -204,6 +233,8 @@ def profile_update_node(state: ConversationState, store: BaseStore) -> dict:
 
     total_elapsed_ms = (perf_counter() - started_at) * 1000
     logger.info("profile_update_node wrote updated profile to %s total_elapsed_ms=%.2f", profile_path, total_elapsed_ms)
+    get_client().score_current_span(name="profile_update.parse_success", value=1.0)
+    get_client().update_current_span(metadata={"updated": True})
     return {"profile_snapshot": updated_profile}
 
 

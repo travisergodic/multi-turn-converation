@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from langchain_core.messages import AIMessage, HumanMessage
 
@@ -70,3 +70,72 @@ def test_profile_update_node_noop(tmp_path):
     with patch("src.nodes.chat_completion", return_value="null"):
         result = profile_update_node(state, store=store)
     assert result == {}
+
+
+def test_memory_update_node_reports_parse_success(tmp_path):
+    store = FileMemoryStore(tmp_path / "memory.json")
+    state = {
+        **MOCK_STATE,
+        "messages": [
+            HumanMessage(content="我叫 Bob"),
+            AIMessage(content="你好 Bob！"),
+        ],
+        "retrieved_memories": [],
+    }
+    mock_ops = '[{"action": "add", "memory_id": null, "content": "用户叫 Bob"}]'
+    with patch("src.nodes.chat_completion", return_value=mock_ops):
+        with patch("src.nodes.get_client") as mock_get_client:
+            mock_lf = MagicMock()
+            mock_get_client.return_value = mock_lf
+            memory_update_node(state, store=store)
+    score_calls = [
+        call for call in mock_lf.score_current_span.call_args_list
+        if call.kwargs.get("name") == "memory_update.parse_success"
+    ]
+    assert score_calls, "Expected parse_success score to be emitted"
+    assert score_calls[0].kwargs["value"] == 1.0
+
+
+def test_memory_update_node_reports_parse_failure(tmp_path):
+    store = FileMemoryStore(tmp_path / "memory.json")
+    state = {
+        **MOCK_STATE,
+        "messages": [
+            HumanMessage(content="我叫 Bob"),
+            AIMessage(content="你好 Bob！"),
+        ],
+        "retrieved_memories": [],
+    }
+    with patch("src.nodes.chat_completion", return_value="not valid json"):
+        with patch("src.nodes.get_client") as mock_get_client:
+            mock_lf = MagicMock()
+            mock_get_client.return_value = mock_lf
+            memory_update_node(state, store=store)
+    score_calls = [
+        call for call in mock_lf.score_current_span.call_args_list
+        if call.kwargs.get("name") == "memory_update.parse_success"
+    ]
+    assert score_calls, "Expected parse_success score to be emitted"
+    assert score_calls[0].kwargs["value"] == 0.0
+
+
+def test_profile_update_node_reports_parse_success_on_noop(tmp_path):
+    store = FileMemoryStore(tmp_path / "memory.json")
+    state = {
+        **MOCK_STATE,
+        "messages": [
+            HumanMessage(content="今天天气真好"),
+            AIMessage(content="确实！"),
+        ],
+    }
+    with patch("src.nodes.chat_completion", return_value="null"):
+        with patch("src.nodes.get_client") as mock_get_client:
+            mock_lf = MagicMock()
+            mock_get_client.return_value = mock_lf
+            profile_update_node(state, store=store)
+    score_calls = [
+        call for call in mock_lf.score_current_span.call_args_list
+        if call.kwargs.get("name") == "profile_update.parse_success"
+    ]
+    assert score_calls
+    assert score_calls[0].kwargs["value"] == 1.0
