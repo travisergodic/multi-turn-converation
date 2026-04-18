@@ -1,4 +1,13 @@
 import os
+import pytest
+
+
+@pytest.fixture(autouse=True)
+def clear_langfuse_cache():
+    import src.eval.tracing as tracing
+    tracing.get_langfuse.cache_clear()
+    yield
+    tracing.get_langfuse.cache_clear()
 
 
 def test_get_langfuse_returns_instance_when_disabled():
@@ -7,6 +16,7 @@ def test_get_langfuse_returns_instance_when_disabled():
     import src.eval.tracing as tracing
     lf = tracing.get_langfuse()
     assert lf is not None
+    assert lf._tracing_enabled is False
 
 
 def test_get_langfuse_singleton():
