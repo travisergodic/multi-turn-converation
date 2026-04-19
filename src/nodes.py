@@ -129,6 +129,7 @@ def memory_update_node(state: ConversationState, store: BaseStore) -> dict:
     msgs = state["messages"]
     if len(msgs) < 2:
         logger.info("memory_update_node skipped because message_count=%s", len(msgs))
+        get_client().update_current_span(metadata={"skipped": "insufficient_messages"})
         return {}
 
     user_message = msgs[-2].content
@@ -153,6 +154,7 @@ def memory_update_node(state: ConversationState, store: BaseStore) -> dict:
     except json.JSONDecodeError:
         logger.warning("memory_update_node received invalid JSON: %s", raw)
         get_client().score_current_span(name="memory_update.parse_success", value=0.0)
+        get_client().update_current_span(metadata={"operation_count": 0, "parse_failed": True})
         return {}
 
     get_client().score_current_span(name="memory_update.parse_success", value=1.0)
@@ -195,6 +197,7 @@ def profile_update_node(state: ConversationState, store: BaseStore) -> dict:
     msgs = state["messages"]
     if len(msgs) < 2:
         logger.info("profile_update_node skipped because message_count=%s", len(msgs))
+        get_client().update_current_span(metadata={"skipped": "insufficient_messages"})
         return {}
 
     user_message = msgs[-2].content
