@@ -1,3 +1,4 @@
+import contextvars
 import json
 import os
 import sys
@@ -9,6 +10,7 @@ from time import perf_counter
 import yaml
 from dotenv import load_dotenv
 from langchain_core.messages import HumanMessage
+from langfuse import get_client, observe, propagate_attributes
 
 # 允许在任意目录执行 `python tools/chat.py` 时找到 `src` 与配置
 _ROOT = Path(__file__).resolve().parent.parent
@@ -74,15 +76,70 @@ def print_help():
     print()
 
 
-def run_background_updates(maintenance_graph, state: dict, config: dict, thread_id: str) -> None:
+def run_background_updates(
+    maintenance_graph,
+    state: dict,
+    config: dict,
+    thread_id: str,
+    *,
+    retrieved_memories: list[dict] | None = None,
+    reply: str | None = None,
+) -> None:
+    from src.eval.judge import score_memory_utilization
+
     started_at = perf_counter()
     logger.info("Background updates started thread_id=%s", thread_id)
+
+    if retrieved_memories and reply:
+        score = score_memory_utilization(retrieved_memories, reply)
+        if score is not None:
+            get_client().score_current_trace(
+                name="response.memory_utilization",
+                value=score,
+                comment="LLM-as-judge: did reply use retrieved memories?",
+            )
+            logger.info("Scored memory_utilization=%.2f thread_id=%s", score, thread_id)
+
     try:
         maintenance_graph.invoke(state, config=config)
         elapsed_ms = (perf_counter() - started_at) * 1000
         logger.info("Background updates finished thread_id=%s total_elapsed_ms=%.2f", thread_id, elapsed_ms)
     except Exception:
         logger.exception("Background updates failed thread_id=%s", thread_id)
+
+
+@observe(name="conversation_turn")
+def handle_turn(
+    user_input: str,
+    thread_id: str,
+    user_id: str,
+    response_graph,
+) -> tuple[str | None, dict]:
+    """Returns (reply_text, full_result_state)."""
+    with propagate_attributes(user_id=user_id, session_id=thread_id):
+        get_client().set_current_trace_io(input=user_input)
+        config = {"configurable": {"thread_id": thread_id}}
+        state = {
+            "messages": [HumanMessage(content=user_input)],
+            "user_id": user_id,
+            "retrieved_memories": [],
+            "profile_snapshot": load_profile(),
+        }
+        logger.info("CLI invoking graph thread_id=%s user_input_chars=%s", thread_id, len(user_input))
+        response_started_at = perf_counter()
+        result = response_graph.invoke(state, config=config)
+        response_elapsed_ms = (perf_counter() - response_started_at) * 1000
+        ai_messages = [m for m in result["messages"] if m.__class__.__name__ == "AIMessage"]
+        reply = ai_messages[-1].content if ai_messages else None
+        if reply:
+            get_client().set_current_trace_io(output=reply)
+            logger.info(
+                "CLI received assistant reply thread_id=%s reply_chars=%s response_elapsed_ms=%.2f",
+                thread_id,
+                len(reply or ""),
+                response_elapsed_ms,
+            )
+        return reply, result
 
 
 def main():
@@ -145,34 +202,24 @@ def main():
             continue
 
         config = {"configurable": {"thread_id": thread_id}}
-        state = {
-            "messages": [HumanMessage(content=user_input)],
-            "user_id": user_id,
-            "retrieved_memories": [],
-            "profile_snapshot": load_profile(),
-        }
-
-        logger.info("CLI invoking graph thread_id=%s user_input_chars=%s", thread_id, len(user_input))
-        response_started_at = perf_counter()
-        result = graph.invoke(state, config=config)
-        response_elapsed_ms = (perf_counter() - response_started_at) * 1000
-        ai_messages = [m for m in result["messages"] if m.__class__.__name__ == "AIMessage"]
-        if ai_messages:
-            logger.info(
-                "CLI received assistant reply thread_id=%s reply_chars=%s response_elapsed_ms=%.2f",
-                thread_id,
-                len(ai_messages[-1].content or ""),
-                response_elapsed_ms,
-            )
-            print(f"助手：{ai_messages[-1].content}\n")
+        ctx = contextvars.copy_context()
+        reply, result = handle_turn(user_input, thread_id, user_id, graph)
+        if reply:
+            print(f"助手：{reply}\n")
             worker = threading.Thread(
-                target=run_background_updates,
-                args=(maintenance_graph, dict(result), config, thread_id),
+                target=ctx.run,
+                args=(run_background_updates, maintenance_graph, dict(result), config, thread_id),
+                kwargs={
+                    "retrieved_memories": result.get("retrieved_memories", []),
+                    "reply": reply,
+                },
                 daemon=True,
                 name=f"memory-maintenance-{thread_id[:8]}",
             )
             worker.start()
             logger.info("CLI scheduled background updates thread_id=%s", thread_id)
+
+    get_client().flush()
 
 
 if __name__ == "__main__":
