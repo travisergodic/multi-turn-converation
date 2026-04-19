@@ -99,6 +99,22 @@ LANGFUSE_HOST=https://cloud.langfuse.com
 
 更细的字段与任务拆解见 `doc/eval_langfuse_plan.md`。
 
+#### 在 Langfuse Cloud 查看指标
+
+配置好 key 并跑几轮对话后，登入 [cloud.langfuse.com](https://cloud.langfuse.com)：
+
+1. **Traces**：左侧菜单 → Traces，每轮用户输入对应一条 `conversation_turn` trace，点进去可看子 span（`retrieve`、`llm_node`、`memory_update_node`、`profile_update_node`）和各自的 input/output。
+
+2. **Scores（评分）**：
+   - trace 级：`response.memory_utilization`（0–1，LLM judge 判断回复是否用上了检索记忆，仅在当轮有检索结果时写入）
+   - span 级：`parse_success`（记忆 / 画像解析是否成功）
+
+3. **按分数筛选**：在 Traces 列表右上角点 "Add filter" → Score → `response.memory_utilization`，可以快速找到低分对话做人工复核。
+
+4. **Dashboard（趋势图）**：左侧菜单 → Dashboard → New Chart，选 "Score" 类型、score name 填 `response.memory_utilization`，聚合方式选 Average，即可看跨时间的记忆利用率走势。
+
+> **注意**：`response.memory_utilization` 是后台线程异步写入的，trace 出现后可能延迟几秒才能看到分数。若分数一直缺失，检查 OpenRouter key 是否有 `anthropic/claude-3.5-sonnet` 的访问权限（judge 调用此模型）。
+
 ### 3. 检查配置文件
 
 默认配置在 [configs/config.yaml](configs/config.yaml)：
